@@ -76,6 +76,7 @@ private:
   }
 
   State transitionsA(char ch) {
+    if (ch == ' ') return State::A;
     if (islower(ch)) {
       _identifier += ch;
       return State::B;
@@ -88,88 +89,126 @@ private:
       _identifier += ch;
       return State::B;
     }
-    if (ch == '=')
+    if (ch == ' ')
       return State::C;
+    if (ch == '=')
+      return State::D;
     throw std::invalid_argument(std::string("Invalid char '") + ch + "' at identifier");
   };
 
   State transitionsC(char ch) {
+    if (ch == ' ')
+      return State::C;
+    if (ch == '=')
+      return State::D;
+    throw std::invalid_argument("Expecting '='");
+  };
+
+  State transitionsD(char ch) {
+    if (ch == ' ')
+      return State::D;
     if (islower(ch)) {
       _aux += ch;
-      return State::D;
+      return State::E;
     }
     if (isdigit(ch)) {
       _aux += ch;
-      return State::E;
+      return State::F;
     }
     throw std::invalid_argument("Expecting a variable or number");
   };
 
-  State transitionsD(char ch) {
-    if (islower(ch) || ch == '_' || isdigit(ch)) {
-      _aux += ch;
-      return State::D;
-    }
-    if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
-      proccessVariableValue();
-      proccessOps(ch);
-      return State::C;
-    }
-    if (ch == ';') {
-      proccessVariableValue();
-      return State::H;
-    }
-    throw std::invalid_argument(std::string("Invalid char '") + ch + "' at identifier");
-  };
-
   State transitionsE(char ch) {
-    if (isdigit(ch)) {
+    if (islower(ch) || ch == '_' || isdigit(ch)) {
       _aux += ch;
       return State::E;
     }
     if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
-      proccessFloatValue();
+      proccessVariableValue();
       proccessOps(ch);
-      return State::C;
+      return State::D;
     }
-    if (ch == '.') {
-      _aux += ch;
-      return State::F;
-    }
+    if (ch == ' ') return State::J;
     if (ch == ';') {
-      proccessFloatValue();
-      return State::H;
+      proccessVariableValue();
+      return State::I;
     }
-    throw std::invalid_argument(std::string("Invalid char '") + ch + "' at value");
+    throw std::invalid_argument(std::string("Invalid char '") + ch + "' at identifier");
   };
 
   State transitionsF(char ch) {
     if (isdigit(ch)) {
       _aux += ch;
+      return State::F;
+    }
+    if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
+      proccessFloatValue();
+      proccessOps(ch);
+      return State::D;
+    }
+    if (ch == ' ') return State::K;
+    if (ch == '.') {
+      _aux += ch;
       return State::G;
     }
-    throw std::invalid_argument("Float value must have at least one decimal precision");
+    if (ch == ';') {
+      proccessFloatValue();
+      return State::I;
+    }
+    throw std::invalid_argument(std::string("Invalid char '") + ch + "' at value");
   };
 
   State transitionsG(char ch) {
     if (isdigit(ch)) {
       _aux += ch;
-      return State::G;
+      return State::H;
+    }
+    throw std::invalid_argument("Float value must have at least one decimal precision");
+  };
+
+  State transitionsH(char ch) {
+    if (isdigit(ch)) {
+      _aux += ch;
+      return State::H;
     }
     if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
       proccessFloatValue();
       proccessOps(ch);
-      return State::C;
+      return State::D;
     }
     if (ch == ';') {
       proccessFloatValue();
-      return State::H;
+      return State::I;
     }
     throw std::invalid_argument(std::string("Invalid char '") + ch + "' at value");
   };
 
-  State transitionsH(char ch) {
+  State transitionsI(char ch) {
     throw std::invalid_argument("Can not have chars after ';'");
+  };
+
+  State transitionsJ(char ch) {
+    if (ch == ' ') {
+      return State::J;
+    }
+    if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
+      proccessVariableValue();
+      proccessOps(ch);
+      return State::D;
+    }
+    throw std::invalid_argument("Expecting an operation");
+  };
+
+  State transitionsK(char ch) {
+    if (ch == ' ') {
+      return State::K;
+    }
+    if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
+      proccessFloatValue();
+      proccessOps(ch);
+      return State::D;
+    }
+    throw std::invalid_argument("Expecting an operation");
   };
 
   std::unordered_map<State, std::function<State(char)>> states = {
@@ -180,7 +219,10 @@ private:
     {State::E, [this](char ch) { return transitionsE(ch); }},
     {State::F, [this](char ch) { return transitionsF(ch); }},
     {State::G, [this](char ch) { return transitionsG(ch); }},
-    {State::H, [this](char ch) { return transitionsH(ch); }}
+    {State::H, [this](char ch) { return transitionsH(ch); }},
+    {State::I, [this](char ch) { return transitionsI(ch); }},
+    {State::J, [this](char ch) { return transitionsJ(ch); }},
+    {State::K, [this](char ch) { return transitionsK(ch); }}
   };
 
 public:
@@ -189,7 +231,7 @@ public:
   float processInput(const std::string& input) {
     for (char c : input)
       _current_state = states[_current_state](c);
-    if (_current_state != State::H) throw std::invalid_argument("Missing ';'");
+    if (_current_state != State::I) throw std::invalid_argument("Missing ';'");
 
     float value = calculate();
     _variables[_identifier] = value;
@@ -219,7 +261,7 @@ void proccessAttrib(std::ifstream& file_stream, std::unordered_map<std::string, 
     while (std::getline(file_stream, str))
       std::cout << "attrib '" << str << "'\nresult: " << automaton.processInput(str) << std::endl;
   } catch (const std::invalid_argument& e) {
-    std::cerr << std::endl << "Error: " << e.what() << std::endl;
+    std::cerr << str << ": " << e.what() << '\n';
   }
 }
 

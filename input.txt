@@ -3,5 +3,5 @@ x = 5
 casa = 2
 
 bola=32+x*casa;
-nome = bola  + 10;
-nome=nome*10 + 5 * 2;
+nome=bola+10;
+nome=nome*10+5*2;
