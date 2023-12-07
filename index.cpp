@@ -169,7 +169,7 @@ private:
   State transitionsH(char ch) {
     if (isdigit(ch)) {
       _aux += ch;
-      return State::F;
+      return State::H;
     }
     if (ch == '*' || ch == '+' || ch == '-' || ch == '/') {
       proccessFloatValue();
